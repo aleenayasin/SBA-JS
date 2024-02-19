@@ -102,7 +102,72 @@ const CourseInfo = {
     // Calculate the average score for each learner and remove the extra data.
   
     //==== PUT CODE HERE =====//
-    return results;
+    
+  function getLearnerData(course, ag, submissions) {
+    // Declare variables properly using let and const where appropriate.
+    const results = [];
+
+    try {
+        for (const submission of submissions) {
+            const { learner_id, assignment_id, submission: { submitted_at, score } } = submission;
+
+            const assignment = ag.assignments.find(a => a.id === assignment_id);
+            if (assignment) {
+                if (new Date(submitted_at) > new Date(assignment.due_at)) {
+                    const latePenalty = assignment.points_possible * 0.1;
+                    console.log(`Late submission deduction for learner ${learner_id}, assignment ${assignment_id}: ${latePenalty}`);
+                    submission.submission.score -= latePenalty;
+                }
+
+                let learnerData = results.find(data => data.id === learner_id);
+
+                switch (learnerData) {
+                    case undefined:
+                        learnerData = { id: learner_id, avg: 0, scores: {} };
+                        results.push(learnerData);
+                        break;
+                    default:
+                        break;
+                }
+
+                if (assignment && assignment.points_possible !== 0) {
+                    const assignmentScore = score / assignment.points_possible;
+                    learnerData.scores[assignment_id] = assignmentScore;
+                }
+            }
+        }
+
+        for (const learnerData of results) {
+            const assignmentWeights = ag.assignments.reduce((weights, assignment) => {
+                weights[assignment.id] = assignment.points_possible;
+                return weights;
+            }, {});
+
+            for (const assignment_id of Object.keys(learnerData.scores)) {
+                if (assignmentWeights[assignment_id] === 0) {
+                    console.log(`Warning: Assignment ${assignment_id} has points_possible set to 0.`);
+                }
+            }
+
+            const totalWeightedScore = Object.keys(learnerData.scores).reduce((total, assignment_id) => {
+                const assignmentScore = learnerData.scores[assignment_id];
+                const assignmentWeight = assignmentWeights[assignment_id];
+                total += assignmentScore * assignmentWeight;
+                return total;
+            }, 0);
+
+            const totalWeight = Object.values(assignmentWeights).reduce((total, weight) => total + weight, 0);
+
+            learnerData.avg = totalWeightedScore / totalWeight;
+        }
+
+        return results;
+    } catch (error) {
+        console.error("An error occurred:", error.message);
+        return results;
+    }
+}
+
   }
   
   const result = getLearnerData(CourseInfo, AssignmentGroup, LearnerSubmissions);
